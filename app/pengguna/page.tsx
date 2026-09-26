@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { ArrowLeft, ShieldCheck, Users } from 'lucide-react';
+import { FormEvent, useEffect, useState } from 'react';
+import { ArrowLeft, ShieldCheck, Users, UserPlus } from 'lucide-react';
 import { createClient } from '../../lib/supabase';
 
 type Role='owner'|'admin'|'mandor';
@@ -10,9 +10,10 @@ type Profile={id:string;full_name:string|null;role:Role;created_at:string};
 export default function PenggunaPage(){
  const [supabase]=useState(()=>createClient());
  const [me,setMe]=useState<any>(null),[role,setRole]=useState<Role|null>(null),[profiles,setProfiles]=useState<Profile[]>([]),[loading,setLoading]=useState(true),[message,setMessage]=useState('');
+ const [form,setForm]=useState({full_name:'',email:'',password:'',role:'mandor' as Role}),[busy,setBusy]=useState(false);
  useEffect(()=>{load()},[]);
  async function load(){
-  setLoading(true);setMessage('');
+  setLoading(true);
   const {data:{user}}=await supabase.auth.getUser();
   if(!user){window.location.href='/';return}
   setMe(user);
@@ -23,6 +24,16 @@ export default function PenggunaPage(){
   if(error)setMessage(error.message); else setProfiles(data||[]);
   setLoading(false);
  }
+ async function createUser(e:FormEvent){
+  e.preventDefault();setMessage('');
+  if(!form.full_name.trim()||!form.email.trim()||form.password.length<6)return alert('Lengkapi nama, email, dan password minimal 6 karakter.');
+  setBusy(true);
+  const {data:{session}}=await supabase.auth.getSession();
+  const res=await fetch('/api/users',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${session?.access_token||''}`},body:JSON.stringify(form)});
+  const body=await res.json();setBusy(false);
+  if(!res.ok)return alert(body.error||'Gagal membuat pengguna.');
+  setForm({full_name:'',email:'',password:'',role:'mandor'});setMessage('Pengguna baru berhasil dibuat dan dapat langsung login.');await load();
+ }
  async function changeRole(id:string,newRole:Role){
   if(id===me?.id&&newRole!=='owner')return alert('Role akun Owner yang sedang dipakai tidak dapat diturunkan dari halaman ini. Ini mencegah kamu kehilangan akses pengelolaan pengguna.');
   if(!confirm(`Ubah role pengguna menjadi ${newRole.toUpperCase()}?`))return;
@@ -31,5 +42,7 @@ export default function PenggunaPage(){
  }
  if(loading)return <div className="main"><div className="card">Memuat pengguna…</div></div>;
  if(role!=='owner')return <div className="main"><div className="card"><h2>Akses dibatasi</h2><p>Halaman Manajemen Pengguna hanya dapat dibuka oleh Owner.</p><a className="btn" href="/"><ArrowLeft size={16}/> Kembali ke SawitPro</a></div></div>;
- return <main className="main" style={{maxWidth:1100,margin:'0 auto'}}><div className="top"><div><h1 style={{margin:0}}>Manajemen Pengguna</h1><div className="muted">Khusus Owner • atur hak akses SawitPro</div></div><a className="btn secondary" href="/"><ArrowLeft size={16}/> Dashboard</a></div><div className="grid4" style={{marginTop:20}}><div className="card kpi"><small>Total Pengguna</small><strong>{profiles.length}</strong></div><div className="card kpi"><small>Owner</small><strong>{profiles.filter(p=>p.role==='owner').length}</strong></div><div className="card kpi"><small>Admin</small><strong>{profiles.filter(p=>p.role==='admin').length}</strong></div><div className="card kpi"><small>Mandor</small><strong>{profiles.filter(p=>p.role==='mandor').length}</strong></div></div><div className="card" style={{marginTop:16}}><div className="editorHead"><div><h3 style={{marginBottom:4}}><Users size={19} style={{verticalAlign:'middle',marginRight:8}}/>Daftar Pengguna</h3><small className="muted">Akun baru otomatis mendapat role Mandor. Owner dapat mengubahnya menjadi Admin atau Owner.</small></div></div>{message&&<div className="alert"><ShieldCheck size={16} style={{verticalAlign:'middle',marginRight:6}}/>{message}</div>}<div className="tableWrap"><table className="table"><thead><tr><th>Nama</th><th>Role Saat Ini</th><th>Ubah Hak Akses</th><th>ID Pengguna</th></tr></thead><tbody>{profiles.map(p=><tr key={p.id}><td><b>{p.full_name||'Tanpa nama'}</b>{p.id===me?.id&&<><br/><small className="muted">Akun kamu</small></>}</td><td><span className="pill">{p.role.toUpperCase()}</span></td><td><select value={p.role} onChange={e=>changeRole(p.id,e.target.value as Role)} disabled={p.id===me?.id}><option value="owner">Owner</option><option value="admin">Admin</option><option value="mandor">Mandor</option></select></td><td><small className="muted">{p.id.slice(0,8)}…</small></td></tr>)}{profiles.length===0&&<tr><td colSpan={4}>Belum ada pengguna.</td></tr>}</tbody></table></div><div className="alert" style={{marginTop:16}}><b>Hak akses:</b> Owner mengelola seluruh aplikasi dan role pengguna. Admin mengelola data operasional tetapi tidak dapat mengatur role. Mandor difokuskan untuk input lapangan dan tidak melihat keseluruhan data keuangan.</div></div></main>
+ return <main className="main" style={{maxWidth:1100,margin:'0 auto'}}><div className="top"><div><h1 style={{margin:0}}>Manajemen Pengguna</h1><div className="muted">Khusus Owner • tambah akun dan atur hak akses SawitPro</div></div><a className="btn secondary" href="/"><ArrowLeft size={16}/> Dashboard</a></div><div className="grid4" style={{marginTop:20}}><div className="card kpi"><small>Total Pengguna</small><strong>{profiles.length}</strong></div><div className="card kpi"><small>Owner</small><strong>{profiles.filter(p=>p.role==='owner').length}</strong></div><div className="card kpi"><small>Admin</small><strong>{profiles.filter(p=>p.role==='admin').length}</strong></div><div className="card kpi"><small>Mandor</small><strong>{profiles.filter(p=>p.role==='mandor').length}</strong></div></div>
+ <div className="card" style={{marginTop:16}}><div className="editorHead"><div><h3 style={{marginBottom:4}}><UserPlus size={19} style={{verticalAlign:'middle',marginRight:8}}/>Tambah Pengguna</h3><small className="muted">Buat akun Admin atau Mandor tanpa membuka dashboard Supabase.</small></div></div><form onSubmit={createUser}><div className="form"><div className="field"><label>Nama</label><input value={form.full_name} onChange={e=>setForm({...form,full_name:e.target.value})} placeholder="Nama pengguna" required/></div><div className="field"><label>Email</label><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="nama@email.com" required/></div><div className="field"><label>Password Awal</label><input type="password" minLength={6} value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="Minimal 6 karakter" required/></div><div className="field"><label>Role</label><select value={form.role} onChange={e=>setForm({...form,role:e.target.value as Role})}><option value="mandor">Mandor</option><option value="admin">Admin</option><option value="owner">Owner</option></select></div></div><button className="btn" disabled={busy}><UserPlus size={16}/>{busy?' Membuat akun…':' Tambah Pengguna'}</button></form></div>
+ <div className="card" style={{marginTop:16}}><div className="editorHead"><div><h3 style={{marginBottom:4}}><Users size={19} style={{verticalAlign:'middle',marginRight:8}}/>Daftar Pengguna</h3><small className="muted">Owner dapat mengubah hak akses pengguna kapan saja.</small></div></div>{message&&<div className="alert"><ShieldCheck size={16} style={{verticalAlign:'middle',marginRight:6}}/>{message}</div>}<div className="tableWrap"><table className="table"><thead><tr><th>Nama</th><th>Role Saat Ini</th><th>Ubah Hak Akses</th><th>ID Pengguna</th></tr></thead><tbody>{profiles.map(p=><tr key={p.id}><td><b>{p.full_name||'Tanpa nama'}</b>{p.id===me?.id&&<><br/><small className="muted">Akun kamu</small></>}</td><td><span className="pill">{p.role.toUpperCase()}</span></td><td><select value={p.role} onChange={e=>changeRole(p.id,e.target.value as Role)} disabled={p.id===me?.id}><option value="owner">Owner</option><option value="admin">Admin</option><option value="mandor">Mandor</option></select></td><td><small className="muted">{p.id.slice(0,8)}…</small></td></tr>)}{profiles.length===0&&<tr><td colSpan={4}>Belum ada pengguna.</td></tr>}</tbody></table></div><div className="alert" style={{marginTop:16}}><b>Hak akses:</b> Owner mengelola seluruh aplikasi dan role pengguna. Admin mengelola data operasional tetapi tidak dapat mengatur role. Mandor difokuskan untuk input lapangan dan tidak melihat keseluruhan data keuangan.</div></div></main>
 }
