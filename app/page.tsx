@@ -3,6 +3,7 @@
 import { Fragment, FormEvent, useEffect, useState } from 'react';
 import { LayoutDashboard, Sprout, Wheat, Wallet, CalendarDays, LogOut, Plus, Pencil, Trash2, X, Users } from 'lucide-react';
 import { createClient } from '../lib/supabase';
+import { ResponsiveContainer, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 
 type Role='owner'|'admin'|'mandor';
 type Plantation={id:number;name:string;location:string|null;area_ha:number;tree_count:number;planting_year:number|null;status:'active'|'inactive'};
